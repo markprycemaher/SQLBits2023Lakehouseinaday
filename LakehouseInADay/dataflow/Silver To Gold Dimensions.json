@@ -1,0 +1,476 @@
+{
+	"name": "Silver To Gold Dimensions",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"name": "SilverRolls"
+				},
+				{
+					"name": "DimGame"
+				},
+				{
+					"name": "DimUsers"
+				},
+				{
+					"name": "DimDice"
+				},
+				{
+					"name": "DimCharacter"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "dungeonmaster-sqlbits-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					},
+					"name": "DimGameSink"
+				},
+				{
+					"linkedService": {
+						"referenceName": "dungeonmaster-sqlbits-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					},
+					"name": "DimCharacterSink"
+				},
+				{
+					"linkedService": {
+						"referenceName": "dungeonmaster-sqlbits-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					},
+					"name": "DimDiceSink"
+				},
+				{
+					"linkedService": {
+						"referenceName": "dungeonmaster-sqlbits-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					},
+					"name": "DimUserSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "DimUsersSelect"
+				},
+				{
+					"name": "DimDiceSelect"
+				},
+				{
+					"name": "DimCharacterSelect"
+				},
+				{
+					"name": "DimGameSelect"
+				},
+				{
+					"name": "AddFnameLname"
+				},
+				{
+					"name": "AddDiceType"
+				},
+				{
+					"name": "DistinctGames"
+				},
+				{
+					"name": "DistinctCharacters"
+				},
+				{
+					"name": "DistinctDices"
+				},
+				{
+					"name": "RemoveDiceColumn"
+				},
+				{
+					"name": "RemoveFullName"
+				},
+				{
+					"name": "DistinctName"
+				},
+				{
+					"name": "MergeGames"
+				},
+				{
+					"name": "MergeConditionGame"
+				},
+				{
+					"name": "AddGameKey"
+				},
+				{
+					"name": "AddingExistingSurrogateValueGame"
+				},
+				{
+					"name": "MaxGameID"
+				},
+				{
+					"name": "RemoveGameKey"
+				},
+				{
+					"name": "CrossJoinMaxGameID"
+				},
+				{
+					"name": "MaxUserID"
+				},
+				{
+					"name": "MaxDiceID"
+				},
+				{
+					"name": "MaxCharacterID"
+				},
+				{
+					"name": "AddCharacterKey"
+				},
+				{
+					"name": "AddDiceKey"
+				},
+				{
+					"name": "AddUserKey"
+				},
+				{
+					"name": "CrossJoinMaxCharacterKey"
+				},
+				{
+					"name": "CrossJoinMaxDiceID"
+				},
+				{
+					"name": "CrossJoinMaxUserID"
+				},
+				{
+					"name": "AddExistingSurrogateKeyCharacter"
+				},
+				{
+					"name": "AddExistingSurrogateKeyDice"
+				},
+				{
+					"name": "AddExistingSurrogateKeyUser"
+				},
+				{
+					"name": "MergeCharacters"
+				},
+				{
+					"name": "MergeConditionCharacter"
+				},
+				{
+					"name": "MergeDices"
+				},
+				{
+					"name": "MergeConditionDice"
+				},
+				{
+					"name": "RemoveDiceColumns"
+				},
+				{
+					"name": "RemoveCharacterColumns"
+				},
+				{
+					"name": "RemoveGameColumns"
+				},
+				{
+					"name": "MergeUsers"
+				},
+				{
+					"name": "MergeConditionUsers"
+				},
+				{
+					"name": "RemoveUserColumns"
+				},
+				{
+					"name": "TurnGameToInt"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          Class as string,",
+				"          Dice as long,",
+				"          GameID as long,",
+				"          Location as string,",
+				"          Name as string,",
+				"          Race as string,",
+				"          Roll as long,",
+				"          RollDateTime as string,",
+				"          SystemID as long,",
+				"          RowHash as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'sparksilver',",
+				"     tableName: 'rolls') ~> SilverRolls",
+				"source(output(",
+				"          GameID as integer,",
+				"          Game as integer,",
+				"          SystemID as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimgame') ~> DimGame",
+				"source(output(",
+				"          UserID as integer,",
+				"          FName as string,",
+				"          LName as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimusers') ~> DimUsers",
+				"source(output(",
+				"          DiceID as integer,",
+				"          DiceName as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimdice') ~> DimDice",
+				"source(output(",
+				"          CharacterID as integer,",
+				"          Class as string,",
+				"          Race as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimcharacter') ~> DimCharacter",
+				"SilverRolls select(mapColumn(",
+				"          Name",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> DimUsersSelect",
+				"SilverRolls select(mapColumn(",
+				"          Dice",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> DimDiceSelect",
+				"SilverRolls select(mapColumn(",
+				"          Class,",
+				"          Race",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> DimCharacterSelect",
+				"SilverRolls select(mapColumn(",
+				"          Game = GameID,",
+				"          SystemID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> DimGameSelect",
+				"DimUsersSelect derive(FName = substring(Name,0,instr(Name, ' ')),",
+				"          LName = substring(Name,instr(Name,' '),(length(Name)-instr(Name, ' ')))) ~> AddFnameLname",
+				"DimDiceSelect derive(DiceName = concat('Dice with ', toString(Dice))) ~> AddDiceType",
+				"DimGameSelect aggregate(groupBy(Game,",
+				"          SystemID),",
+				"     each(match(name!=\"Game\"&&name!=\"SystemID\"), $$ = first($$))) ~> DistinctGames",
+				"DimCharacterSelect aggregate(groupBy(Class,",
+				"          Race),",
+				"     each(match(name!=\"Class\"&&name!=\"Race\"), $$ = first($$))) ~> DistinctCharacters",
+				"RemoveDiceColumn aggregate(groupBy(DiceName),",
+				"     each(match(name!=\"DiceName\"), $$ = first($$))) ~> DistinctDices",
+				"AddDiceType select(mapColumn(",
+				"          DiceName",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveDiceColumn",
+				"AddFnameLname select(mapColumn(",
+				"          FName,",
+				"          LName",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveFullName",
+				"RemoveFullName aggregate(groupBy(FName,",
+				"          LName),",
+				"     each(match(name!=\"FName\"&&name!=\"LName\"), $$ = first($$))) ~> DistinctName",
+				"RemoveGameKey, DimGame join(RemoveGameKey@Game == DimGame@Game",
+				"     && RemoveGameKey@SystemID == DimGame@SystemID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> MergeGames",
+				"MergeGames alterRow(insertIf(isNull(DimGame@GameID)==true()&&isNull(DimGame@Game)==true()&&isNull(DimGame@SystemID)==true())) ~> MergeConditionGame",
+				"TurnGameToInt keyGenerate(output(GameKey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> AddGameKey",
+				"CrossJoinMaxGameID derive(GameID = toInteger(GameKey + case(MaxGameID == 0, MaxGameID, MaxGameID - 1))) ~> AddingExistingSurrogateValueGame",
+				"DimGame aggregate(MaxGameID = toLong(iifNull(max(GameID)+1,0))) ~> MaxGameID",
+				"AddingExistingSurrogateValueGame select(mapColumn(",
+				"          Game,",
+				"          SystemID,",
+				"          GameID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveGameKey",
+				"AddGameKey, MaxGameID join(GameKey != MaxGameID,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> CrossJoinMaxGameID",
+				"DimUsers aggregate(MaxUserID = toLong(iifNull(max(UserID)+1,0))) ~> MaxUserID",
+				"DimDice aggregate(MaxDiceID = toLong(iifNull(max(DiceID)+1,0))) ~> MaxDiceID",
+				"DimCharacter aggregate(MaxCharacterID = toLong(iifNull(max(CharacterID)+1,0))) ~> MaxCharacterID",
+				"DistinctCharacters keyGenerate(output(CharacterKey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> AddCharacterKey",
+				"DistinctDices keyGenerate(output(DiceKey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> AddDiceKey",
+				"DistinctName keyGenerate(output(UserKey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> AddUserKey",
+				"AddCharacterKey, MaxCharacterID join(MaxCharacterID != CharacterKey,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> CrossJoinMaxCharacterKey",
+				"AddDiceKey, MaxDiceID join(DiceKey!=MaxDiceID,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> CrossJoinMaxDiceID",
+				"AddUserKey, MaxUserID join(UserKey!=MaxUserID,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> CrossJoinMaxUserID",
+				"CrossJoinMaxCharacterKey derive(CharacterID = toInteger(CharacterKey + case(MaxCharacterID == 0, MaxCharacterID, MaxCharacterID - 1))) ~> AddExistingSurrogateKeyCharacter",
+				"CrossJoinMaxDiceID derive(DiceID = toInteger(DiceKey + case(MaxDiceID == 0, MaxDiceID, MaxDiceID - 1))) ~> AddExistingSurrogateKeyDice",
+				"CrossJoinMaxUserID derive(UserID = toInteger(UserKey + case(MaxUserID == 0, MaxUserID, MaxUserID - 1))) ~> AddExistingSurrogateKeyUser",
+				"AddExistingSurrogateKeyCharacter, DimCharacter join(DistinctCharacters@Class == DimCharacter@Class",
+				"     && DistinctCharacters@Race == DimCharacter@Race,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> MergeCharacters",
+				"MergeCharacters alterRow(insertIf(isNull(DimCharacter@CharacterID) == true() && isNull(DimCharacter@Class) == true() && isNull(DimCharacter@Race) == true())) ~> MergeConditionCharacter",
+				"AddExistingSurrogateKeyDice, DimDice join(DistinctDices@DiceName == DimDice@DiceName,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> MergeDices",
+				"MergeDices alterRow(insertIf(isNull(DimDice@DiceID) == true() && isNull(DimDice@DiceName) == true())) ~> MergeConditionDice",
+				"MergeConditionDice select(mapColumn(",
+				"          DiceName = DistinctDices@DiceName,",
+				"          DiceID = AddExistingSurrogateKeyDice@DiceID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveDiceColumns",
+				"MergeConditionCharacter select(mapColumn(",
+				"          Class = DistinctCharacters@Class,",
+				"          Race = DistinctCharacters@Race,",
+				"          CharacterID = AddExistingSurrogateKeyCharacter@CharacterID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveCharacterColumns",
+				"MergeConditionGame select(mapColumn(",
+				"          Game = RemoveGameKey@Game,",
+				"          SystemID = RemoveGameKey@SystemID,",
+				"          GameID = RemoveGameKey@GameID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveGameColumns",
+				"AddExistingSurrogateKeyUser, DimUsers join(DistinctName@FName == DimUsers@FName",
+				"     && DistinctName@LName == DimUsers@LName,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> MergeUsers",
+				"MergeUsers alterRow(insertIf(isNull(DimUsers@FName) == true() && isNull(DimUsers@LName) == true())) ~> MergeConditionUsers",
+				"MergeConditionUsers select(mapColumn(",
+				"          FName = DistinctName@FName,",
+				"          LName = DistinctName@LName,",
+				"          UserID = AddExistingSurrogateKeyUser@UserID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveUserColumns",
+				"DistinctGames derive(Game = toInteger(Game)) ~> TurnGameToInt",
+				"RemoveGameColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'dungeonmaster',",
+				"     folderPath: 'synapse/workspaces/dungeonmaster-sqlbits/warehouse/gold.db/dimgame',",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1) ~> DimGameSink",
+				"RemoveCharacterColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'dungeonmaster',",
+				"     folderPath: 'synapse/workspaces/dungeonmaster-sqlbits/warehouse/gold.db/dimcharacter',",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1) ~> DimCharacterSink",
+				"RemoveDiceColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'dungeonmaster',",
+				"     folderPath: 'synapse/workspaces/dungeonmaster-sqlbits/warehouse/gold.db/dimdice',",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1) ~> DimDiceSink",
+				"RemoveUserColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'dungeonmaster',",
+				"     folderPath: 'synapse/workspaces/dungeonmaster-sqlbits/warehouse/gold.db/dimusers',",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1) ~> DimUserSink"
+			]
+		}
+	}
+}

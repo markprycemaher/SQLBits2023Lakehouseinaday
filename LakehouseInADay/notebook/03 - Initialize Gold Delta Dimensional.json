@@ -1,0 +1,152 @@
+{
+	"name": "03 - Initialize Gold Delta Dimensional",
+	"properties": {
+		"folder": {
+			"name": "Dataflow Solution/Gold"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "50f80f35-43e3-4f87-8029-d6573a5d3496"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "sql"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>Initializing your gold tables\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"DROP TABLE IF EXISTS gold.FactRolls;\r\n",
+					"DROP TABLE IF EXISTS gold.DimUsers;\r\n",
+					"DROP TABLE IF EXISTS gold.DimDice;\r\n",
+					"DROP TABLE IF EXISTS gold.DimCharacter;\r\n",
+					"DROP TABLE IF EXISTS gold.DimGame;\r\n",
+					"DROP TABLE IF EXISTS gold.DimDate;\r\n",
+					"DROP DATABASE IF EXISTS gold; -- add CASCADE if database is not empty\r\n",
+					"CREATE DATABASE gold;\r\n",
+					"\r\n",
+					"\r\n",
+					"CREATE TABLE gold.FactRolls \r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"Roll,\r\n",
+					"1 as DateID,\r\n",
+					"1 as UserID,\r\n",
+					"1 as DiceID,\r\n",
+					"1 as CharacterID,\r\n",
+					"1 as GameID\r\n",
+					" FROM silver.rolls\r\n",
+					" LIMIT 0;\r\n",
+					"\r\n",
+					"CREATE TABLE gold.DimUsers\r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"1 as UserID,\r\n",
+					"'FName' as FName,\r\n",
+					"'LName' as LName\r\n",
+					" FROM silver.rolls\r\n",
+					" LIMIT 0;\r\n",
+					"\r\n",
+					"CREATE TABLE gold.DimDice\r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"1 as DiceID,\r\n",
+					"'Dice with ' as DiceName\r\n",
+					" FROM silver.rolls\r\n",
+					" LIMIT 0;\r\n",
+					"\r\n",
+					"CREATE TABLE gold.DimCharacter\r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"1 as CharacterID,\r\n",
+					"Class,\r\n",
+					"Race\r\n",
+					" FROM silver.rolls\r\n",
+					" LIMIT 0;\r\n",
+					"\r\n",
+					"CREATE TABLE gold.DimGame\r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"1 as GameID,\r\n",
+					"1 as Game,\r\n",
+					"SystemID\r\n",
+					" FROM silver.rolls\r\n",
+					" LIMIT 0;\r\n",
+					"\r\n",
+					"CREATE TABLE gold.DimDate\r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"1 as DateID,\r\n",
+					"'Date' as Date\r\n",
+					" FROM silver.rolls\r\n",
+					" LIMIT 0;\r\n",
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

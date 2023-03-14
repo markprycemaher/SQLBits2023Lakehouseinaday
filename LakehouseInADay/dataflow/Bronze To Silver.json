@@ -1,0 +1,182 @@
+{
+	"name": "Bronze To Silver",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "BronzeFolder",
+						"type": "LinkedServiceReference"
+					},
+					"name": "BronzeData"
+				},
+				{
+					"linkedService": {
+						"referenceName": "Default",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SilverData"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "Default",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SilverDelta"
+				}
+			],
+			"transformations": [
+				{
+					"name": "RemoveInvalidRolls"
+				},
+				{
+					"name": "FilterInvalidRolls"
+				},
+				{
+					"name": "RemoveUnwantedColumns"
+				},
+				{
+					"name": "JoinBronzeSilverOnHash"
+				},
+				{
+					"name": "AddSilverHashColumn"
+				},
+				{
+					"name": "Merge"
+				},
+				{
+					"name": "RemoveJoinedColumns"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     BronzeDeltaFilePath as string (\"synapse/workspaces/dungeonmaster-sqlbits/warehouse/bronze.db/rolls\"),",
+				"     BronzeDeltaContainer as string (\"dungeonmaster\"),",
+				"     SilverDeltaFilePath as string (\"synapse/workspaces/dungeonmaster-sqlbits/warehouse/silver.db/rolls\"),",
+				"     SilverDeltaContainer as string (\"dungeonmaster\")",
+				"}",
+				"source(output(",
+				"          Class as string,",
+				"          Dice as long,",
+				"          EventEnqueuedUtcTime as string,",
+				"          EventProcessedUtcTime as string,",
+				"          GameID as long,",
+				"          Location as string,",
+				"          Name as string,",
+				"          PartitionId as long,",
+				"          Race as string,",
+				"          Roll as long,",
+				"          RollDateTime as string,",
+				"          SystemID as long,",
+				"          LoadingUser as string,",
+				"          LoadDate as timestamp",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delta',",
+				"     fileSystem: ($BronzeDeltaContainer),",
+				"     folderPath: ($BronzeDeltaFilePath)) ~> BronzeData",
+				"source(output(",
+				"          Class as string,",
+				"          Dice as long,",
+				"          GameID as long,",
+				"          Location as string,",
+				"          Name as string,",
+				"          Race as string,",
+				"          Roll as long,",
+				"          RollDateTime as string,",
+				"          SystemID as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delta',",
+				"     fileSystem: ($SilverDeltaContainer),",
+				"     folderPath: ($SilverDeltaFilePath)) ~> SilverData",
+				"BronzeData derive(ValidRolls = case(greater(Roll,0),toInteger(Roll),toInteger('-999')),",
+				"          HashColumnBronze = crc32(Class,Dice,GameID,Location,Name,Race,Roll,RollDateTime,SystemID)) ~> RemoveInvalidRolls",
+				"RemoveInvalidRolls filter(ValidRolls!=-999) ~> FilterInvalidRolls",
+				"FilterInvalidRolls select(mapColumn(",
+				"          Class,",
+				"          Dice,",
+				"          GameID,",
+				"          Location,",
+				"          Name,",
+				"          Race,",
+				"          RollDateTime,",
+				"          SystemID,",
+				"          ValidRolls,",
+				"          HashColumnBronze",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveUnwantedColumns",
+				"RemoveUnwantedColumns, AddSilverHashColumn join(HashColumnBronze == SilverHash,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> JoinBronzeSilverOnHash",
+				"SilverData derive(SilverHash = crc32(Class,Dice,GameID,Location,Name,Race,Roll,RollDateTime,SystemID)) ~> AddSilverHashColumn",
+				"JoinBronzeSilverOnHash alterRow(insertIf(SilverHash!=HashColumnBronze),",
+				"     updateIf(SilverHash==HashColumnBronze)) ~> Merge",
+				"Merge select(mapColumn(",
+				"          Class = RemoveUnwantedColumns@Class,",
+				"          Dice = RemoveUnwantedColumns@Dice,",
+				"          GameID = RemoveUnwantedColumns@GameID,",
+				"          Location = RemoveUnwantedColumns@Location,",
+				"          Name = RemoveUnwantedColumns@Name,",
+				"          Race = RemoveUnwantedColumns@Race,",
+				"          RollDateTime = RemoveUnwantedColumns@RollDateTime,",
+				"          SystemID = RemoveUnwantedColumns@SystemID,",
+				"          ValidRolls",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveJoinedColumns",
+				"RemoveJoinedColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Class as string,",
+				"          Dice as long,",
+				"          GameID as long,",
+				"          Location as string,",
+				"          Name as string,",
+				"          Race as string,",
+				"          Roll as long,",
+				"          RollDateTime as string,",
+				"          SystemID as long",
+				"     ),",
+				"     format: 'delta',",
+				"     fileSystem: ($SilverDeltaContainer),",
+				"     folderPath: ($SilverDeltaFilePath),",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['Class','Dice','GameID','Location','Name','Race','RollDateTime','SystemID','Roll'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     mapColumn(",
+				"          Class,",
+				"          Dice,",
+				"          GameID,",
+				"          Location,",
+				"          Name,",
+				"          Race,",
+				"          RollDateTime,",
+				"          SystemID,",
+				"          Roll = ValidRolls",
+				"     )) ~> SilverDelta"
+			]
+		}
+	}
+}

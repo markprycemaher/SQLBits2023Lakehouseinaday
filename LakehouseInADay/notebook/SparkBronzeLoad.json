@@ -1,0 +1,232 @@
+{
+	"name": "SparkBronzeLoad",
+	"properties": {
+		"folder": {
+			"name": "Spark Solution/Bronze"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "44eb67b2-4887-48f5-b630-eea68635785b"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>LandingZone to Bronze with Init\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2>Define Parameter Cell"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"## Parameter Cell\r\n",
+					"IsInitial = 0\r\n",
+					"LandingzoneLocation = \"abfss://sqlbits@synapseinaday.dfs.core.windows.net/landing/rolls/json/*/*/*\"\r\n",
+					"TableName = 'rolls'\r\n",
+					"DatabaseName = 'SparkBronze'\r\n",
+					"LoadUser = 'Filip'\r\n",
+					"DeltaTableLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparkbronze.db/rolls'\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load all Landingzone data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"rolls = spark.read.load(f'{LandingzoneLocation}', format='json')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Adding Auditing Information & Hash of column values"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.functions import *\r\n",
+					"\r\n",
+					"rolls = (\r\n",
+					"    rolls\r\n",
+					"    .withColumn('LoadUser', lit(f'{LoadUser}'))\r\n",
+					"    .withColumn('LoadTimestamp',current_timestamp())\r\n",
+					"    .withColumn('RowHash', \r\n",
+					"    sha2(\r\n",
+					"        concat_ws('.',\r\n",
+					"        col('Class'), \r\n",
+					"        col('Dice'),\r\n",
+					"        col('EventEnqueuedUtcTime'),\r\n",
+					"        col('EventProcessedUtcTime'),\r\n",
+					"        col('GameID'), col('Location'),\r\n",
+					"        col('Name'),\r\n",
+					"        col('PartitionId'),\r\n",
+					"        col('Race'),\r\n",
+					"        col('Roll'),\r\n",
+					"        col('SystemID')\r\n",
+					"        ),256\r\n",
+					"        )\r\n",
+					"        )\r\n",
+					")\r\n",
+					"display(rolls)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Writing to Delta Table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"import delta\r\n",
+					"\r\n",
+					"#Initial Load\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.{TableName};')\r\n",
+					"    spark.sql(f'DROP DATABASE IF EXISTS {DatabaseName};')\r\n",
+					"    spark.sql(f'CREATE DATABASE {DatabaseName};')\r\n",
+					"    rolls.write.format('delta').saveAsTable(f'{DatabaseName}.{TableName}')\r\n",
+					"\r\n",
+					"#Merge for later loads\r\n",
+					"if IsInitial == 0: \r\n",
+					"    RollsDelta = delta.DeltaTable.forPath(spark, f'{DeltaTableLocation}')\r\n",
+					"    RollsDelta.alias('delta').merge(rolls.alias('df'),'delta.RollDateTime = df.RollDateTime and delta.GameID = df.GameID and delta.SystemID = df.SystemID').whenNotMatchedInsertAll().whenMatchedUpdateAll(condition='delta.RowHash <> df.RowHash').execute()"
+				],
+				"execution_count": 18
+			}
+		]
+	}
+}

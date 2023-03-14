@@ -1,0 +1,10 @@
+{
+	"name": "LandingZone",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://synapseinaday.dfs.core.windows.net/"
+		}
+	}
+}

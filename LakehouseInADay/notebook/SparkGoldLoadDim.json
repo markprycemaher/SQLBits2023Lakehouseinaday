@@ -1,0 +1,608 @@
+{
+	"name": "SparkGoldLoadDim",
+	"properties": {
+		"folder": {
+			"name": "Spark Solution/Gold"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark2",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "5f5cd800-8070-46d2-84a2-d57caff9499b"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark2",
+				"name": "SparkySpark2",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark2",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>SilverZone to Gold Dim with Init\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"</h1>"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2>Define Parameter Cell"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Parameter Cell\r\n",
+					"IsInitial = 1\r\n",
+					"SilverTableLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparksilver.db/rolls'\r\n",
+					"DatabaseName = 'SparkGold'\r\n",
+					"GoldTableRootLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparkgold.db/'\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2>(Re)create Gold database"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimClass;')\r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimDice;')\r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimCharacter;')\r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimGame;')\r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimUser;')\r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.GameLocationPlayer;')\r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimDate;')\r\n",
+					"    \r\n",
+					"    spark.sql(f'DROP DATABASE IF EXISTS {DatabaseName};') # use CASCADE to drop all objects as well\r\n",
+					"    spark.sql(f'CREATE DATABASE {DatabaseName};')"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load all SilverZone data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"import delta\r\n",
+					"\r\n",
+					"#which one is better? py delta or spark.sql?\r\n",
+					"dfSilver = delta.DeltaTable.forPath(spark, f'{SilverTableLocation}').toDF();#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load Dim Date"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import explode, sequence, to_date\r\n",
+					"\r\n",
+					"beginDate = '2000-01-01'\r\n",
+					"endDate = '2050-12-31'\r\n",
+					"\r\n",
+					"(\r\n",
+					"  spark.sql(f\"select explode(sequence(to_date('{beginDate}'), to_date('{endDate}'), interval 1 day)) as calendarDate\")\r\n",
+					"    .createOrReplaceTempView('dates')\r\n",
+					")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"create or replace table sql_gold.DimDate\r\n",
+					"using delta\r\n",
+					"as select\r\n",
+					"  year(calendarDate) * 10000 + month(calendarDate) * 100 + day(calendarDate) as DateInt,\r\n",
+					"  CalendarDate,\r\n",
+					"  year(calendarDate) AS CalendarYear,\r\n",
+					"  date_format(calendarDate, 'MMMM') as CalendarMonth,\r\n",
+					"  month(calendarDate) as MonthOfYear,\r\n",
+					"  date_format(calendarDate, 'EEEE') as CalendarDay,\r\n",
+					"  dayofweek(calendarDate) as DayOfWeek,\r\n",
+					"  weekday(calendarDate) + 1 as DayOfWeekStartMonday,\r\n",
+					"  case\r\n",
+					"    when weekday(calendarDate) < 5 then 'Y'\r\n",
+					"    else 'N'\r\n",
+					"  end as IsWeekDay,\r\n",
+					"  dayofmonth(calendarDate) as DayOfMonth,\r\n",
+					"  case\r\n",
+					"    when calendarDate = last_day(calendarDate) then 'Y'\r\n",
+					"    else 'N'\r\n",
+					"  end as IsLastDayOfMonth,\r\n",
+					"  dayofyear(calendarDate) as DayOfYear,\r\n",
+					"  weekofyear(calendarDate) as WeekOfYearIso,\r\n",
+					"  quarter(calendarDate) as QuarterOfYear,\r\n",
+					"  /* Use fiscal periods needed by organization fiscal calendar */\r\n",
+					"  case\r\n",
+					"    when month(calendarDate) >= 10 then year(calendarDate) + 1\r\n",
+					"    else year(calendarDate)\r\n",
+					"  end as FiscalYearOctToSep,\r\n",
+					"  (month(calendarDate) + 2) % 12 + 1 as FiscalMonthOctToSep,\r\n",
+					"  case\r\n",
+					"    when month(calendarDate) >= 7 then year(calendarDate) + 1\r\n",
+					"    else year(calendarDate)\r\n",
+					"  end as FiscalYearJulToJun,\r\n",
+					"  (month(calendarDate) + 5) % 12 + 1 as FiscalMonthJulToJun\r\n",
+					"from\r\n",
+					"  dates"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load Dim Dice"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.functions import monotonically_increasing_id\r\n",
+					"from pyspark.sql.functions import concat,col,lit\r\n",
+					"\r\n",
+					"dfDiceInput = (\r\n",
+					"    dfSilver\r\n",
+					"    .select(\"Dice\")\r\n",
+					"    .distinct()\r\n",
+					"    .withColumnRenamed(\"Dice\", \"DiceName\")\r\n",
+					"    .alias(\"DiceInput\")\r\n",
+					")\r\n",
+					"\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimDice;')\r\n",
+					"    dfDimDice = (\r\n",
+					"        dfDiceInput\r\n",
+					"        .withColumn(\"DiceID\", 1 + monotonically_increasing_id())\r\n",
+					"        .withColumn(\"DiceName\", concat(lit(\"Dice with \"), \"DiceName\"))\r\n",
+					"        .select(\"DiceID\", \"DiceName\")\r\n",
+					"    )\r\n",
+					"    dfDimDice.write.format('delta').saveAsTable(f'{DatabaseName}.DimDice')\r\n",
+					"\r\n",
+					"if IsInitial == 0: \r\n",
+					"    GoldDimDice = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimdice')\r\n",
+					"    dfGoldDimDice = GoldDimDice.toDF()\r\n",
+					"    MaxID = dfGoldDimDice.agg({'DiceID': 'max'}).collect()[0][0]\r\n",
+					"    if MaxID is None: MaxID = 0\r\n",
+					"    dfNewDiceMembers = (\r\n",
+					"        dfDiceInput\r\n",
+					"        .join(dfGoldDimDice, on='DiceName', how='left_anti')\r\n",
+					"        .withColumn(\"DiceID\", MaxID + 1+ monotonically_increasing_id())\r\n",
+					"        .withColumn(\"DiceName\", concat(lit(\"Dice with \"), \"DiceName\"))\r\n",
+					"        .select(\"DiceID\", \"DiceName\")\r\n",
+					"    )\r\n",
+					"\r\n",
+					"    GoldDimDice.alias('delta').merge(dfNewDiceMembers.alias('df'),'delta.DiceName = df.DiceName').whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load Dim Character"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import monotonically_increasing_id\r\n",
+					"from pyspark.sql.functions import concat,col,lit\r\n",
+					"\r\n",
+					"dfCharacterInput = (\r\n",
+					"    dfSilver\r\n",
+					"    .select(\"Class\", \"Race\")\r\n",
+					"    .distinct()\r\n",
+					")\r\n",
+					"\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimCharacter;')\r\n",
+					"    dfDimCharacter = (\r\n",
+					"        dfCharacterInput\r\n",
+					"        .withColumn(\"CharacterID\", 1 + monotonically_increasing_id())\r\n",
+					"        .select(\"CharacterID\", \"Class\", \"Race\")\r\n",
+					"    )\r\n",
+					"    dfDimCharacter.write.format('delta').saveAsTable(f'{DatabaseName}.DimCharacter')\r\n",
+					"\r\n",
+					"if IsInitial == 0: \r\n",
+					"    GoldDimCharacter = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimcharacter')\r\n",
+					"    dfGoldDimCharacter = GoldDimCharacter.toDF()\r\n",
+					"    MaxID = dfGoldDimCharacter.agg({'CharacterID': 'max'}).collect()[0][0]\r\n",
+					"    if MaxID is None: MaxID = 0\r\n",
+					"    dfNewCharacterMembers = (\r\n",
+					"        dfCharacterInput\r\n",
+					"        .join(dfGoldDimCharacter,(dfCharacterInput[\"Class\"] == dfGoldDimCharacter[\"Class\"]) & (dfCharacterInput[\"Race\"] == dfGoldDimCharacter[\"Race\"]), how='left_anti')\r\n",
+					"        .withColumn(\"CharacterID\", MaxID + 1+ monotonically_increasing_id())\r\n",
+					"        .select(\"CharacterID\", \"Class\", \"Race\")\r\n",
+					"    )\r\n",
+					"\r\n",
+					"    GoldDimCharacter.alias('delta').merge(dfNewCharacterMembers.alias('df'),'delta.Class = df.Class and delta.Race = df.Race').whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load Dim Game"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import monotonically_increasing_id\r\n",
+					"from pyspark.sql.functions import concat,col,lit\r\n",
+					"\r\n",
+					"dfGameInput = (\r\n",
+					"    dfSilver\r\n",
+					"    .select(\"GameID\", \"SystemID\")\r\n",
+					"    .distinct()\r\n",
+					")\r\n",
+					"\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimGame;')\r\n",
+					"    dfDimGame = (\r\n",
+					"        dfGameInput\r\n",
+					"\t\t.withColumnRenamed(\"GameID\", \"Game\")\r\n",
+					"        .withColumn(\"GameID\", 1 + monotonically_increasing_id())\r\n",
+					"        .select(\"GameID\", \"Game\", \"SystemID\")\r\n",
+					"    )\r\n",
+					"    dfDimGame.write.format('delta').saveAsTable(f'{DatabaseName}.DimGame')\r\n",
+					"\r\n",
+					"if IsInitial == 0: \r\n",
+					"    GoldDimGame = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimgame')\r\n",
+					"    dfGoldDimGame = GoldDimGame.toDF()\r\n",
+					"    MaxID = dfGoldDimGame.agg({'GameID': 'max'}).collect()[0][0]\r\n",
+					"    if MaxID is None: MaxID = 0\r\n",
+					"    dfNewGameMembers = (\r\n",
+					"        dfGameInput\r\n",
+					"        .join(dfGoldDimGame, (dfGameInput[\"GameID\"] == dfGoldDimGame[\"Game\"]) & (dfGameInput[\"SystemID\"] == dfGoldDimGame[\"SystemID\"]), how='left_anti')\r\n",
+					"\t\t.withColumnRenamed(\"GameID\", \"Game\")\r\n",
+					"        .withColumn(\"GameID\", MaxID + 1+ monotonically_increasing_id())\r\n",
+					"        .select(\"GameID\", \"Game\", \"SystemID\")\r\n",
+					"    )\r\n",
+					"\r\n",
+					"    GoldDimGame.alias('delta').merge(dfNewGameMembers.alias('df'),'delta.GameID = df.GameID and delta.SystemID = df.SystemID').whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 47
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					""
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load Dim User"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import monotonically_increasing_id\r\n",
+					"from pyspark.sql.functions import concat,col,lit\r\n",
+					"\r\n",
+					"dfUserInput = (\r\n",
+					"    dfSilver\r\n",
+					"    .select(\"Name\")\r\n",
+					"    .distinct()\r\n",
+					")\r\n",
+					"\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.DimUser;')\r\n",
+					"    dfDimUser = (\r\n",
+					"        dfUserInput\r\n",
+					"        .withColumn(\"UserID\", 1 + monotonically_increasing_id())\r\n",
+					"        .select(\"UserID\", \"Name\")\r\n",
+					"    )\r\n",
+					"    dfDimUser.write.format('delta').saveAsTable(f'{DatabaseName}.DimUser')\r\n",
+					"\r\n",
+					"if IsInitial == 0: \r\n",
+					"    GoldDimUser = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimuser')\r\n",
+					"    dfGoldDimUser = GoldDimUser.toDF()\r\n",
+					"    MaxID = dfGoldDimUser.agg({'UserID': 'max'}).collect()[0][0]\r\n",
+					"    if MaxID is None: MaxID = 0\r\n",
+					"    dfNewUserMembers = (\r\n",
+					"        dfUserInput\r\n",
+					"        .join(dfGoldDimUser, on='Name', how='left_anti')\r\n",
+					"        .withColumn(\"UserID\", MaxID + 1+ monotonically_increasing_id())\r\n",
+					"        .select(\"UserID\", \"Name\")\r\n",
+					"    )\r\n",
+					"\r\n",
+					"    GoldDimUser.alias('delta').merge(dfNewUserMembers.alias('df'),'delta.Name = df.Name').whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Game Location Player relationship"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.functions import monotonically_increasing_id\r\n",
+					"from pyspark.sql.functions import concat,col,lit\r\n",
+					"\r\n",
+					"dfGameLocationPlayerInput = (\r\n",
+					"    dfSilver\r\n",
+					"    .select(\"Name\", \"GameID\", \"SystemID\", \"Location\")\r\n",
+					"    .distinct()\r\n",
+					")\r\n",
+					"\r\n",
+					"dfDimUser = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimuser').toDF()\r\n",
+					"dfDimGame = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimgame').toDF()\r\n",
+					"\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.GameLocationPlayer;')\r\n",
+					"    dfGameLocationPlayer = (\r\n",
+					"        dfGameLocationPlayerInput\r\n",
+					"        .join(dfDimGame,(dfGameLocationPlayerInput[\"GameID\"] == dfDimGame[\"Game\"]) & (dfGameLocationPlayerInput[\"SystemID\"] == dfDimGame[\"SystemID\"]))\r\n",
+					"        .drop(dfDimGame[\"GameID\"])\r\n",
+					"        .drop(dfDimGame[\"SystemID\"])\r\n",
+					"        .join(dfDimUser,\"Name\")\r\n",
+					"        .select(\"UserID\", \"GameID\", \"SystemID\", \"Location\")\r\n",
+					"    )\r\n",
+					"    dfGameLocationPlayer.write.format('delta').saveAsTable(f'{DatabaseName}.GameLocationPlayer')\r\n",
+					"\r\n",
+					"if IsInitial == 0: \r\n",
+					"    GoldGameLocationPlayer = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}gamelocationplayer')\r\n",
+					"    dfGoldGameLocationPlayer = GoldGameLocationPlayer.toDF()\r\n",
+					"    # prvo join na dimenzije\r\n",
+					"    dfNewGameLocationPlayerMembers = (\r\n",
+					"        dfGameLocationPlayerInput\r\n",
+					"        .join(dfDimGame,(dfGameLocationPlayerInput[\"GameID\"] == dfDimGame[\"Game\"]) & (dfGameLocationPlayerInput[\"SystemID\"] == dfDimGame[\"SystemID\"]))\r\n",
+					"        .drop(dfDimGame[\"GameID\"])\r\n",
+					"        .drop(dfDimGame[\"SystemID\"])\r\n",
+					"        .join(dfDimUser,\"Name\")\r\n",
+					"        .select(\"UserID\", \"GameID\", \"SystemID\", \"Location\")\r\n",
+					"    )\r\n",
+					"    \r\n",
+					"    GoldGameLocationPlayer.alias('delta').merge(dfNewGameLocationPlayerMembers.alias('df'),'delta.UserID = df.UserID and delta.SystemID = df.SystemID and delta.Location = df.Location').whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 25
+			}
+		]
+	}
+}

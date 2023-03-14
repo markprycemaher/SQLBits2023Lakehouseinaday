@@ -1,0 +1,24 @@
+{
+	"name": "AnySQLDatabase",
+	"properties": {
+		"parameters": {
+			"ServerName": {
+				"type": "string",
+				"defaultValue": "cthulhu"
+			},
+			"DatabaseName": {
+				"type": "string",
+				"defaultValue": "WideWorldImporters-Standard"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=\"@{concat(linkedService().ServerName,'.database.windows.net')}\";Initial Catalog=@{linkedService().DatabaseName}"
+		},
+		"connectVia": {
+			"referenceName": "AutoResolveIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

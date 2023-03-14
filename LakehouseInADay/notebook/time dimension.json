@@ -1,0 +1,54 @@
+{
+	"name": "time dimension",
+	"properties": {
+		"folder": {
+			"name": "SparkSQL Solution/shared code"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "f6d257b2-9b34-4a85-a755-379dbf937710"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_time USING DELTA as\r\n",
+					"select  row_number() over (order by Time_Hour,Time_min  ) as time_ID,\r\n",
+					"Time_Hour, Time_min, current_date() as Current_Date, now() as LoadDate from (\r\n",
+					"select distinct date_format (RollDateTime,\"HH\") Time_Hour , date_format (RollDateTime,\"mm\") Time_min \r\n",
+					"from sql_bronze.rolls ) q"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

@@ -1,0 +1,166 @@
+{
+	"name": "02 - Initialize Silver Layer SQL",
+	"properties": {
+		"folder": {
+			"name": "SparkSQL Solution/Silver"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "8d4bdd09-8af7-45b1-8bc7-e68b03b5f7d4"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_sparksql",
+				"display_name": "sql"
+			},
+			"language_info": {
+				"name": "sql"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#LoadDate = \"2023-01-29\" # 2023-01-29 ## yyyy-mm-dd\r\n",
+					"#LoadHour = \"20\" # 21 ## hh\r\n",
+					"LoadDate = \"*\" # 2023-01-29 ## yyyy-mm-dd\r\n",
+					"LoadHour = \"*\" # 21 ## hh"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import lit\r\n",
+					"from notebookutils import mssparkutils\r\n",
+					"from pyspark.sql import functions as F"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"INSERT INTO sql_logging.logging  SELECT  current_timestamp(), '{0}','{1}','Loading Silver'\".format(LoadDate, LoadHour))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"-- Create DB if it doesnt exist\r\n",
+					"--DROP DATABASE IF EXISTS silver;\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_silver;\r\n",
+					"\r\n",
+					"-- drop the bronze rolls table\r\n",
+					"DROP TABLE IF EXISTS sql_silver.rolls;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_silver.rolls \r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"Class,\r\n",
+					"Dice,\r\n",
+					"GameID,\r\n",
+					"Location,\r\n",
+					"Name,\r\n",
+					"split(Name,'\\\\ ')[0] as first_name,\r\n",
+					"split(Name,'\\\\ ')[1] as family_name,\r\n",
+					"Race,\r\n",
+					"Roll,\r\n",
+					"RollDateTime,\r\n",
+					"SystemID,\r\n",
+					"to_date (RollDateTime) as RollDate,\r\n",
+					"date_format (RollDateTime,\"HH\") as RollHour,\r\n",
+					"date_format (RollDateTime,\"MM\") as RollMin,\r\n",
+					"to_timestamp(RolldateTime) RollDT,\r\n",
+					" roll -dice  as Bonus,\r\n",
+					" case when roll = dice then 1 else 0 end Critical_Hit\r\n",
+					" FROM sql_bronze.rolls \r\n",
+					"-- business logic -- get rid of bad data. i.e. if there is a 0 roll\r\n",
+					"--WHERE Roll > 0 \r\n",
+					"-- Filter out any strange characters in the name\r\n",
+					"--and rlike(Name,'[a-zA-Z]')\r\n",
+					"\r\n",
+					"-- select name, first_name,family_name   FROM sql_silver.rolls "
+				],
+				"execution_count": 1
+			}
+		]
+	}
+}

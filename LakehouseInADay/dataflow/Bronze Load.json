@@ -1,0 +1,150 @@
+{
+	"name": "Bronze Load",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "LandingZone",
+						"type": "LinkedServiceReference"
+					},
+					"name": "FetchJSONFiles"
+				},
+				{
+					"linkedService": {
+						"referenceName": "BronzeFolder",
+						"type": "LinkedServiceReference"
+					},
+					"name": "RollsTable"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "BronzeFolder",
+						"type": "LinkedServiceReference"
+					},
+					"name": "LoadToDelta"
+				}
+			],
+			"transformations": [
+				{
+					"name": "AddingAuditColumns"
+				},
+				{
+					"name": "CheckingForNewData"
+				},
+				{
+					"name": "AddingHashID"
+				},
+				{
+					"name": "JoinDeltaTable"
+				},
+				{
+					"name": "RemoveUnneededColumns"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     JSONPathFUll as string ('landing/rolls/json/*/*/*.json'),",
+				"     PipelineRun as string ('Managed Identity'),",
+				"     DeltaContainer as string ('dungeonmaster'),",
+				"     DeltaFolder as string ('synapse/workspaces/dungeonmaster-sqlbits/warehouse/bronze.db/rolls')",
+				"}",
+				"source(output(",
+				"          Class as string,",
+				"          Dice as short,",
+				"          EventEnqueuedUtcTime as string,",
+				"          EventProcessedUtcTime as string,",
+				"          GameID as integer,",
+				"          Location as string,",
+				"          Name as string,",
+				"          PartitionId as boolean,",
+				"          Race as string,",
+				"          Roll as short,",
+				"          RollDateTime as string,",
+				"          SystemID as integer",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'json',",
+				"     fileSystem: 'sqlbits',",
+				"     documentForm: 'documentPerLine',",
+				"     wildcardPaths:[($JSONPathFUll)]) ~> FetchJSONFiles",
+				"source(output(",
+				"          Class as string,",
+				"          Dice as long,",
+				"          EventEnqueuedUtcTime as string,",
+				"          EventProcessedUtcTime as string,",
+				"          GameID as long,",
+				"          Location as string,",
+				"          Name as string,",
+				"          PartitionId as long,",
+				"          Race as string,",
+				"          Roll as long,",
+				"          RollDateTime as string,",
+				"          SystemID as long,",
+				"          LoadingUser as string,",
+				"          LoadDate as timestamp",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delta',",
+				"     fileSystem: ($DeltaContainer),",
+				"     folderPath: ($DeltaFolder)) ~> RollsTable",
+				"FetchJSONFiles derive(LoadDate = currentDate(),",
+				"          LoadingUser = $PipelineRun,",
+				"          HashID = crc32(Class,Dice,EventEnqueuedUtcTime,EventProcessedUtcTime,GameID,Location,Name,PartitionId,Race,Roll,RollDateTime,SystemID)) ~> AddingAuditColumns",
+				"JoinDeltaTable alterRow(insertIf(HashIDDelta!=HashID),",
+				"     updateIf(HashIDDelta==HashID)) ~> CheckingForNewData",
+				"RollsTable derive(HashIDDelta = crc32(Class,Dice,EventEnqueuedUtcTime,EventProcessedUtcTime,GameID,Location,Name,PartitionId,Race,Roll,RollDateTime,SystemID)) ~> AddingHashID",
+				"AddingAuditColumns, AddingHashID join(HashID == HashIDDelta,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> JoinDeltaTable",
+				"CheckingForNewData select(mapColumn(",
+				"          Class = FetchJSONFiles@Class,",
+				"          Dice = FetchJSONFiles@Dice,",
+				"          EventEnqueuedUtcTime = FetchJSONFiles@EventEnqueuedUtcTime,",
+				"          EventProcessedUtcTime = FetchJSONFiles@EventProcessedUtcTime,",
+				"          GameID = FetchJSONFiles@GameID,",
+				"          Location = FetchJSONFiles@Location,",
+				"          Name = FetchJSONFiles@Name,",
+				"          PartitionId = FetchJSONFiles@PartitionId,",
+				"          Race = FetchJSONFiles@Race,",
+				"          Roll = FetchJSONFiles@Roll,",
+				"          RollDateTime = FetchJSONFiles@RollDateTime,",
+				"          SystemID = FetchJSONFiles@SystemID,",
+				"          LoadDate = AddingAuditColumns@LoadDate,",
+				"          LoadingUser = AddingAuditColumns@LoadingUser",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveUnneededColumns",
+				"RemoveUnneededColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: ($DeltaContainer),",
+				"     folderPath: ($DeltaFolder),",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['Class','Dice','EventEnqueuedUtcTime','EventProcessedUtcTime','GameID','Location','Name','PartitionId','Race','Roll','RollDateTime','SystemID'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> LoadToDelta"
+			]
+		}
+	}
+}

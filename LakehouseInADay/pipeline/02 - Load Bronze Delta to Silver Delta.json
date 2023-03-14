@@ -1,0 +1,41 @@
+{
+	"name": "02 - Load Bronze Delta to Silver Delta",
+	"properties": {
+		"activities": [
+			{
+				"name": "Silver Flow",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "Bronze To Silver",
+						"type": "DataFlowReference",
+						"parameters": {
+							"BronzeDeltaFilePath": "\"synapse/workspaces/dungeonmaster-sqlbits/warehouse/bronze.db/rolls\"",
+							"BronzeDeltaContainer": "\"dungeonmaster\"",
+							"SilverDeltaFilePath": "\"synapse/workspaces/dungeonmaster-sqlbits/warehouse/silver.db/rolls\"",
+							"SilverDeltaContainer": "\"dungeonmaster\""
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"folder": {
+			"name": "Dataflow Solution/Silver Layer"
+		},
+		"annotations": []
+	}
+}

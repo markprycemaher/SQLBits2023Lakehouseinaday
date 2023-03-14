@@ -1,0 +1,30 @@
+{
+	"name": "GenericSQLQuery",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AnySQLDatabase",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"ServerName": {
+					"value": "@dataset().ServerName",
+					"type": "Expression"
+				},
+				"DatabaseName": {
+					"value": "@dataset().DatabaseName",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"DatabaseName": {
+				"type": "string"
+			},
+			"ServerName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}

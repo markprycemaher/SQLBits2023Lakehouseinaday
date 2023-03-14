@@ -1,0 +1,214 @@
+{
+	"name": "SparkSilverLoad",
+	"properties": {
+		"folder": {
+			"name": "Spark Solution/Silver"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "79a22d0e-6793-487d-bbbf-989e4a3ff8bb"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>BronzeZone to Silver with Init\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"</h1>"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2>Define Parameter Cell"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Parameter Cell\r\n",
+					"IsInitial = 0\r\n",
+					"BronzeTableLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparkbronze.db/rolls'\r\n",
+					"#LandingzoneLocation = \"abfss://sqlbits@synapseinaday.dfs.core.windows.net/landing/rolls/json/*/*/*\"\r\n",
+					"TableName = 'rolls'\r\n",
+					"DatabaseName = 'SparkSilver'\r\n",
+					"LoadUser = 'Stijn'\r\n",
+					"SilverTableLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparksilver.db/rolls'\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load all BronzeZone data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"import delta\r\n",
+					"\r\n",
+					"#which one is better? py delta or spark.sql?\r\n",
+					"dfBronze = delta.DeltaTable.forPath(spark, f'{BronzeTableLocation}').toDF();#spark.sql(\"SELECT * FROM sparkbronze.rolls\")\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Cleanse BronzeZone data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfCleansed = (\r\n",
+					"    dfBronze\r\n",
+					"    .drop(\"EventEnqueuedUtcTime\", \"EventProcessedUtcTime\", \"PartitionId\", \"LoadUser\", \"LoadTimestamp\")\r\n",
+					"    .filter(\"Roll >= 1\")\r\n",
+					")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Writing to Delta Table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"import delta\r\n",
+					"\r\n",
+					"#Initial Load\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.{TableName};')\r\n",
+					"    spark.sql(f'DROP DATABASE IF EXISTS {DatabaseName};')\r\n",
+					"    spark.sql(f'CREATE DATABASE {DatabaseName};')\r\n",
+					"    dfCleansed.write.format('delta').saveAsTable(f'{DatabaseName}.{TableName}')\r\n",
+					"\r\n",
+					"if IsInitial == 0: \r\n",
+					"    SilverRolls = delta.DeltaTable.forPath(spark, f'{SilverTableLocation}')\r\n",
+					"    SilverRolls.alias('delta').merge(dfCleansed.alias('df'),'delta.RollDateTime = df.RollDateTime and delta.GameID = df.GameID and delta.SystemID = df.SystemID').whenNotMatchedInsertAll().whenMatchedUpdateAll().execute(condition='delta.RowHash <> df.RowHash')\r\n",
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

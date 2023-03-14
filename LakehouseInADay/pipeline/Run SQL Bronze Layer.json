@@ -1,0 +1,46 @@
+{
+	"name": "Run SQL Bronze Layer",
+	"properties": {
+		"activities": [
+			{
+				"name": "RunNotebook",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"parameters": {
+						"LoadDate": {
+							"value": "2023-01-29",
+							"type": "string"
+						},
+						"LoadHour": {
+							"value": "21",
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "SparkySpark",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			}
+		],
+		"annotations": []
+	}
+}

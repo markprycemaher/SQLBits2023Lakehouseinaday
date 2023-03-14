@@ -1,0 +1,142 @@
+{
+	"name": "01 - Initialize bronze layer",
+	"properties": {
+		"folder": {
+			"name": "Dataflow Solution/Bronze"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "9c2463ba-f793-4da0-bfe5-b3ac56ca99cf"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>Initializing your bronze table\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Loading one of the files to get all included data types"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"df = spark.read.load('abfss://sqlbits@synapseinaday.dfs.core.windows.net/landing/rolls/json/2023-01-29/19/0_2c8abee0ee80439da2939f3f26a02c1e_1.json', format='json')\r\n",
+					"display(df.limit(10))\r\n",
+					"df.createOrReplaceTempView(\"JSONRolls\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Creating a database and a delta table with the audit columns"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"DROP TABLE IF EXISTS bronze.rolls;\r\n",
+					"DROP DATABASE IF EXISTS bronze; -- add CASCADE if database is not empty\r\n",
+					"CREATE DATABASE bronze;\r\n",
+					"\r\n",
+					"\r\n",
+					"CREATE TABLE bronze.rolls \r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT *, 'SomeUser' as LoadingUser, now() as LoadDate FROM JSONRolls LIMIT 0;\r\n",
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

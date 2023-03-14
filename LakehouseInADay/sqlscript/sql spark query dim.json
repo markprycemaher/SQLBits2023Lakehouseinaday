@@ -1,0 +1,17 @@
+{
+	"name": "sql spark query dim",
+	"properties": {
+		"content": {
+			"query": "SELECT TOP (100) * FROM [sql_gold].[dbo].[dim_name]",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "sql_gold",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

@@ -1,0 +1,220 @@
+{
+	"name": "Silver To Gold Fact",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"name": "SilverRolls"
+				},
+				{
+					"name": "DimUsers"
+				},
+				{
+					"name": "DimDice"
+				},
+				{
+					"name": "DimCharacter"
+				},
+				{
+					"name": "DimGame"
+				}
+			],
+			"sinks": [],
+			"transformations": [
+				{
+					"name": "AddColumns"
+				},
+				{
+					"name": "RemoveColumns"
+				},
+				{
+					"name": "GetUserID"
+				},
+				{
+					"name": "RemoveUserColumns"
+				},
+				{
+					"name": "GetDiceID"
+				},
+				{
+					"name": "RemoveDiceColumn"
+				},
+				{
+					"name": "GetCharacterID"
+				},
+				{
+					"name": "RemoveCharacterColumns"
+				},
+				{
+					"name": "GetGameID"
+				},
+				{
+					"name": "RemoveGameColumns"
+				},
+				{
+					"name": "join1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          Class as string,",
+				"          Dice as long,",
+				"          GameID as long,",
+				"          Location as string,",
+				"          Name as string,",
+				"          Race as string,",
+				"          Roll as long,",
+				"          RollDateTime as string,",
+				"          SystemID as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'sparksilver',",
+				"     tableName: 'rolls') ~> SilverRolls",
+				"source(output(",
+				"          UserID as integer,",
+				"          FName as string,",
+				"          LName as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimusers') ~> DimUsers",
+				"source(output(",
+				"          DiceID as integer,",
+				"          DiceName as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimdice') ~> DimDice",
+				"source(output(",
+				"          CharacterID as integer,",
+				"          Class as string,",
+				"          Race as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimcharacter') ~> DimCharacter",
+				"source(output(",
+				"          GameID as integer,",
+				"          Game as integer,",
+				"          SystemID as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     store: 'synapse',",
+				"     databaseType: 'spark',",
+				"     format: 'table',",
+				"     database: 'gold',",
+				"     tableName: 'dimgame') ~> DimGame",
+				"SilverRolls derive(FName = substring(Name,0,instr(Name, ' ')),",
+				"          Lname = substring(Name,instr(Name,' '),(length(Name)-instr(Name, ' '))),",
+				"          DiceName = concat('Dice with ', toString(Dice)),",
+				"          GameID = toInteger(GameID)) ~> AddColumns",
+				"AddColumns select(mapColumn(",
+				"          Class,",
+				"          GameID,",
+				"          Location,",
+				"          Race,",
+				"          Roll,",
+				"          RollDateTime,",
+				"          SystemID,",
+				"          FName,",
+				"          Lname,",
+				"          DiceName",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveColumns",
+				"RemoveColumns, DimUsers lookup(RemoveColumns@FName == DimUsers@FName",
+				"     && RemoveColumns@Lname == DimUsers@LName,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> GetUserID",
+				"GetUserID select(mapColumn(",
+				"          Class,",
+				"          GameID,",
+				"          Location,",
+				"          Race,",
+				"          Roll,",
+				"          RollDateTime,",
+				"          SystemID,",
+				"          UserID,",
+				"          DiceName",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveUserColumns",
+				"RemoveUserColumns, DimDice lookup(RemoveUserColumns@DiceName == DimDice@DiceName,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> GetDiceID",
+				"GetDiceID select(mapColumn(",
+				"          Class,",
+				"          GameID,",
+				"          Location,",
+				"          Race,",
+				"          Roll,",
+				"          RollDateTime,",
+				"          SystemID,",
+				"          UserID,",
+				"          DiceID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveDiceColumn",
+				"RemoveDiceColumn, DimCharacter lookup(RemoveDiceColumn@Race == DimCharacter@Race",
+				"     && RemoveDiceColumn@Class == DimCharacter@Class,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> GetCharacterID",
+				"GetCharacterID select(mapColumn(",
+				"          GameID,",
+				"          Location,",
+				"          Roll,",
+				"          RollDateTime,",
+				"          SystemID,",
+				"          UserID,",
+				"          DiceID,",
+				"          CharacterID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveCharacterColumns",
+				"join1, DimGame lookup(RemoveCharacterColumns@GameID == DimGame@Game",
+				"     && RemoveCharacterColumns@SystemID == DimGame@SystemID,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> GetGameID",
+				"GetGameID select(mapColumn(",
+				"          Location,",
+				"          Roll,",
+				"          RollDateTime,",
+				"          UserID,",
+				"          DiceID,",
+				"          CharacterID,",
+				"          GameID = DimGame@GameID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveGameColumns",
+				"RemoveCharacterColumns, DimGame join(RemoveCharacterColumns@GameID == Game",
+				"     && RemoveCharacterColumns@SystemID == DimGame@SystemID,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1"
+			]
+		}
+	}
+}

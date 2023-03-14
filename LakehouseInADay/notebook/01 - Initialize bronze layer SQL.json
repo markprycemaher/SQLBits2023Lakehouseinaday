@@ -1,0 +1,264 @@
+{
+	"name": "01 - Initialize bronze layer SQL",
+	"properties": {
+		"folder": {
+			"name": "SparkSQL Solution/Bronze"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "b9b355cc-3862-422c-b788-9c23030d342a"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": true,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>Initializing your bronze table\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"2 Parameters to be passed in via ADF or Pipelines.  The date and time of the folder.  These values are over written by the pipeline."
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#LoadDate = \"2023-01-29\" # 2023-01-29 ## yyyy-mm-dd\r\n",
+					"#LoadHour = \"20\" # 21 ## hh\r\n",
+					"LoadDate = \"*\" # 2023-01-29 ## yyyy-mm-dd\r\n",
+					"LoadHour = \"*\" # 21 ## hh\r\n",
+					""
+				],
+				"execution_count": 35
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import lit\r\n",
+					"from notebookutils import mssparkutils\r\n",
+					"from pyspark.sql import functions as F\r\n",
+					"\r\n",
+					"spark.sql(\"CREATE DATABASE IF NOT EXISTS sql_logging;\")\r\n",
+					"#spark.sql(\"DROP TABLE IF EXISTS bronze.logging;\")\r\n",
+					"#spark.sql(\"create table sql_logging.logging  (loaddate TIMESTAMP, loadyear STRING, loadhour STRING, layer STRING);\")\r\n",
+					"\r\n",
+					"spark.sql(\"INSERT INTO sql_logging.logging  SELECT  current_timestamp(), '{0}','{1}','Load StartRaw'\".format(LoadDate, LoadHour))\r\n",
+					"\r\n",
+					"spark.sql(\"SELECT * FROM sql_logging.logging\").show(20);\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Loading all the files in the sub folder</h2>\r\n",
+					"\r\n",
+					"Loading the data into a Spark table JSONRolls.\r\n",
+					"Adding system information user name, user id, job id, workspace and spark pool name.\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.functions import lit\r\n",
+					"from notebookutils import mssparkutils\r\n",
+					"\r\n",
+					"spark.sql(\"INSERT INTO sql_logging.logging  SELECT  current_timestamp(), '{0}','{1}','Loading Raw'\".format(LoadDate, LoadHour))\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql(\"CREATE DATABASE IF NOT EXISTS sql_raw;\")\r\n",
+					"\r\n",
+					"spark.sql(\"DROP TABLE IF EXISTS sql_raw.JSONRolls;\")\r\n",
+					"spark.sql(\"DROP TABLE IF EXISTS sql_raw.DeltaRolls;\")\r\n",
+					"\r\n",
+					"spark.sql(\"CREATE TABLE sql_raw.JSONRolls USING JSON LOCATION 'abfss://sqlbits@synapseinaday.dfs.core.windows.net/landing/rolls/json/{0}/{1}/*.json'\".format(LoadDate, LoadHour))\r\n",
+					"\r\n",
+					"# prepare\r\n",
+					"sparkusername = mssparkutils.env.getUserName()\r\n",
+					"sparkuserid = mssparkutils.env.getUserId()\r\n",
+					"sparkjobid = mssparkutils.env.getJobId()\r\n",
+					"sparkworkspacename = mssparkutils.env.getWorkspaceName()\r\n",
+					"sparkpoolname = mssparkutils.env.getPoolName()\r\n",
+					"spark.sql(\"CREATE TABLE sql_raw.DeltaRolls USING DELTA AS SELECT  *, CAST('{0}' AS varchar(100)) AS sparkusername, CAST('{1}' AS varchar(100)) AS sparkuserid, CAST('{2}' AS varchar(100)) AS sparkjobid,  CAST('{3}' AS varchar(100)) AS sparkworkspacename, CAST('{4}' AS varchar(100)) AS sparkpoolname FROM sql_raw.JSONRolls\".format(sparkusername, sparkuserid, sparkjobid, sparkworkspacename, sparkpoolname))\r\n",
+					""
+				],
+				"execution_count": 37
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Creating a database and a delta table with the audit columns, deleting the data to have a clean start"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"INSERT INTO sql_logging.logging  SELECT  current_timestamp(), '{0}','{1}','Loading Bronze'\".format(LoadDate, LoadHour))"
+				],
+				"execution_count": 38
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"-- Create DB if it doesnt exist\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_bronze;\r\n",
+					"\r\n",
+					"-- drop the bronze rolls table\r\n",
+					"DROP TABLE IF EXISTS sql_bronze.rolls;\r\n",
+					"\r\n",
+					"CREATE TABLE sql_bronze.rolls \r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT   current_date() as Current_Date, now() as LoadDate, * FROM sql_raw.DeltaRolls;\r\n",
+					""
+				],
+				"execution_count": 39
+			}
+		]
+	}
+}

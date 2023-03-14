@@ -1,0 +1,100 @@
+{
+	"name": "02 - Initialize Silver Layer",
+	"properties": {
+		"folder": {
+			"name": "Dataflow Solution/Silver"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "8f6022cc-d307-4aa2-b47a-2a9c24f7a99a"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "sql"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark",
+				"name": "SparkySpark",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 6,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>Initializing your silver table\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"DROP TABLE IF EXISTS silver.rolls;\r\n",
+					"DROP DATABASE IF EXISTS silver; -- add CASCADE if database is not empty\r\n",
+					"CREATE DATABASE silver;\r\n",
+					"\r\n",
+					"\r\n",
+					"CREATE TABLE silver.rolls \r\n",
+					"USING DELTA\r\n",
+					"AS \r\n",
+					"SELECT \r\n",
+					"Class,\r\n",
+					"Dice,\r\n",
+					"GameID,\r\n",
+					"Location,\r\n",
+					"Name,\r\n",
+					"Race,\r\n",
+					"Roll,\r\n",
+					"RollDateTime,\r\n",
+					"SystemID\r\n",
+					"FROM bronze.rolls LIMIT 0;"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

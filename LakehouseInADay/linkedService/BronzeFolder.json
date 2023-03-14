@@ -1,0 +1,10 @@
+{
+	"name": "BronzeFolder",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://dungeonmaster.dfs.core.windows.net/"
+		}
+	}
+}

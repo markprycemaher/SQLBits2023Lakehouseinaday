@@ -1,0 +1,779 @@
+{
+	"name": "03 - Initialize Gold Delta Dimensional SQL",
+	"properties": {
+		"folder": {
+			"name": "SparkSQL Solution/Gold"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "c23fca70-5d34-44fb-aef3-a7adc8ab6cca"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_sparksql",
+				"display_name": "Synapse SQL"
+			},
+			"language_info": {
+				"name": "sql"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>Initializing your Gold layer\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"INSERT INTO sql_logging.logging  SELECT  current_timestamp(), '{0}','{1}','Loading Gold'\".format(LoadDate, LoadHour))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"-- Time Dimension\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_time USING DELTA as\r\n",
+					"select  row_number() over (order by Time_Hour,Time_min  ) as time_ID,\r\n",
+					"Time_Hour, Time_min, current_date() as Current_Date, now() as LoadDate from (\r\n",
+					"select distinct date_format (RollDateTime,\"HH\") Time_Hour , date_format (RollDateTime,\"mm\") Time_min \r\n",
+					"from sql_bronze.rolls ) q"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_name  USING DELTA as\r\n",
+					" select row_number() over (order by \"name\") as name_ID, name, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_name_loader USING DELTA as  select row_number() over (order by \"name\") as name_ID, name, current_date() as Current_Date, now() as LoadDate from ( select distinct name from sql_silver.rolls  ) tmp ORDER BY name\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_name using \r\n",
+					"sql_gold.dim_name_loader ON (sql_gold.dim_name.name=sql_gold.dim_name_loader.name)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (name_ID,name,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_name_loader.name_ID + coalesce((select max(name_ID) from sql_gold.dim_name),0) ,\r\n",
+					"sql_gold.dim_name_loader.name,\r\n",
+					"sql_gold.dim_name_loader.Current_Date,\r\n",
+					"sql_gold.dim_name_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table sql_gold.dim_name_loader;\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_first_name  USING DELTA as\r\n",
+					" select row_number() over (order by \"first_name\") as first_name_ID, first_name, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_first_name_loader USING DELTA as  select row_number() over (order by \"first_name\") as first_name_ID, first_name, current_date() as Current_Date, now() as LoadDate from ( select distinct first_name from sql_silver.rolls  ) tmp ORDER BY first_name\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_first_name using \r\n",
+					"sql_gold.dim_first_name_loader ON (sql_gold.dim_first_name.first_name=sql_gold.dim_first_name_loader.first_name)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (first_name_ID,first_name,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_first_name_loader.first_name_ID + coalesce((select max(first_name_ID) from sql_gold.dim_first_name),0) ,\r\n",
+					"sql_gold.dim_first_name_loader.first_name,\r\n",
+					"sql_gold.dim_first_name_loader.Current_Date,\r\n",
+					"sql_gold.dim_first_name_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_first_name_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_family_name  USING DELTA as\r\n",
+					" select row_number() over (order by \"family_name\") as family_name_ID, family_name, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_family_name_loader USING DELTA as  select row_number() over (order by \"family_name\") as family_name_ID, family_name, current_date() as Current_Date, now() as LoadDate from ( select distinct family_name from sql_silver.rolls  ) tmp ORDER BY family_name\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_family_name using \r\n",
+					"sql_gold.dim_family_name_loader ON (sql_gold.dim_family_name.family_name=sql_gold.dim_family_name_loader.family_name)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (family_name_ID,family_name,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_family_name_loader.family_name_ID + coalesce((select max(family_name_ID) from sql_gold.dim_family_name),0) ,\r\n",
+					"sql_gold.dim_family_name_loader.family_name,\r\n",
+					"sql_gold.dim_family_name_loader.Current_Date,\r\n",
+					"sql_gold.dim_family_name_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_family_name_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_person  USING DELTA as\r\n",
+					" select row_number() over (order by \"name\") as person_ID, 0 as name_id, 0 as first_name_id, 0 as family_name_id,\r\n",
+					" current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_person_loader USING DELTA as  \r\n",
+					"select row_number() over (order by name_id, first_name_id, family_name_id) as person_ID, name_id, first_name_id, family_name_id, \r\n",
+					"current_date() as Current_Date, now() as LoadDate from \r\n",
+					"( select distinct  dn.name_id, fn.first_name_id,fan.family_name_id  from sql_silver.rolls r\r\n",
+					"inner join sql_gold.dim_name dn on r.name = dn.name \r\n",
+					"inner join sql_gold.dim_first_name fn on r.first_name = fn.first_name \r\n",
+					"inner join sql_gold.dim_family_name fan on r.family_name = fan.family_name  ) tmp ORDER BY name_id, first_name_id, family_name_id\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_person using \r\n",
+					"sql_gold.dim_person_loader ON \r\n",
+					"(sql_gold.dim_person.name_id=sql_gold.dim_person_loader.name_id\r\n",
+					"and sql_gold.dim_person.first_name_id=sql_gold.dim_person_loader.first_name_id\r\n",
+					" and sql_gold.dim_person.family_name_id=sql_gold.dim_person_loader.family_name_id)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (person_ID,name_id,first_name_id, family_name_id, Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_person_loader.person_id + coalesce((select max(person_id) from sql_gold.dim_person),0) ,\r\n",
+					"sql_gold.dim_person_loader.name_id,\r\n",
+					"sql_gold.dim_person_loader.first_name_id,\r\n",
+					"sql_gold.dim_person_loader.family_name_id,\r\n",
+					"sql_gold.dim_person_loader.Current_Date,\r\n",
+					"sql_gold.dim_person_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table sql_gold.dim_person_loader;\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_race  USING DELTA as\r\n",
+					" select row_number() over (order by \"race\") as race_ID, race, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_race_loader USING DELTA as  select row_number() over (order by \"race\") as race_ID, race, current_date() as Current_Date, now() as LoadDate from ( select distinct race from sql_silver.rolls  ) tmp ORDER BY race\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_race using \r\n",
+					"sql_gold.dim_race_loader ON (sql_gold.dim_race.race=sql_gold.dim_race_loader.race)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (race_ID,race,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_race_loader.race_ID + coalesce((select max(race_ID) from sql_gold.dim_race),0) ,\r\n",
+					"sql_gold.dim_race_loader.race,\r\n",
+					"sql_gold.dim_race_loader.Current_Date,\r\n",
+					"sql_gold.dim_race_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_race_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_Location  USING DELTA as\r\n",
+					" select row_number() over (order by \"Location\") as Location_ID, Location, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_Location_loader USING DELTA as  select row_number() over (order by \"Location\") as Location_ID, Location, current_date() as Current_Date, now() as LoadDate from ( select distinct Location from sql_silver.rolls  ) tmp ORDER BY Location\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_Location using \r\n",
+					"sql_gold.dim_Location_loader ON (sql_gold.dim_Location.Location=sql_gold.dim_Location_loader.Location)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (Location_ID,Location,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_Location_loader.Location_ID + coalesce((select max(Location_ID) from sql_gold.dim_Location),0) ,\r\n",
+					"sql_gold.dim_Location_loader.Location,\r\n",
+					"sql_gold.dim_Location_loader.Current_Date,\r\n",
+					"sql_gold.dim_Location_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_Location_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_class  USING DELTA as\r\n",
+					" select row_number() over (order by \"class\") as class_ID, class, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_class_loader USING DELTA as  select row_number() over (order by \"class\") as class_ID, class, current_date() as Current_Date, now() as LoadDate from ( select distinct class from sql_silver.rolls  ) tmp ORDER BY class\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_class using \r\n",
+					"sql_gold.dim_class_loader ON (sql_gold.dim_class.class=sql_gold.dim_class_loader.class)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (class_ID,class,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_class_loader.class_ID + coalesce((select max(class_ID) from sql_gold.dim_class),0) ,\r\n",
+					"sql_gold.dim_class_loader.class,\r\n",
+					"sql_gold.dim_class_loader.Current_Date,\r\n",
+					"sql_gold.dim_class_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_class_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_dice  USING DELTA as\r\n",
+					" select row_number() over (order by \"dice\") as dice_ID, dice, current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_dice_loader USING DELTA as  select row_number() over (order by \"dice\") as dice_ID, dice, current_date() as Current_Date, now() as LoadDate from ( select distinct dice from sql_silver.rolls  ) tmp ORDER BY dice\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_dice using \r\n",
+					"sql_gold.dim_dice_loader ON (sql_gold.dim_dice.dice=sql_gold.dim_dice_loader.dice)\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (dice_ID,dice,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_dice_loader.dice_ID + coalesce((select max(dice_ID) from sql_gold.dim_dice),0) ,\r\n",
+					"sql_gold.dim_dice_loader.dice,\r\n",
+					"sql_gold.dim_dice_loader.Current_Date,\r\n",
+					"sql_gold.dim_dice_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_dice_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"--drop table sql_gold.dim_player ;\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_player USING DELTA as\r\n",
+					" select row_number() over (order by gameid, name, race, class) as player_ID, gameid, name, race, class,  \r\n",
+					" current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_player_loader USING DELTA as  select row_number() over (order by gameid,name, race, class) \r\n",
+					"as player_ID, gameid, name, race, class,  current_date() as Current_Date, now() as LoadDate from ( select distinct  gameid, name, race, class from sql_silver.rolls  ) tmp ORDER BY gameid,name, race, class\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_player using \r\n",
+					"sql_gold.dim_player_loader ON (sql_gold.dim_player.name=sql_gold.dim_player_loader.name\r\n",
+					"and sql_gold.dim_player.race=sql_gold.dim_player_loader.race\r\n",
+					"and sql_gold.dim_player.class=sql_gold.dim_player_loader.class\r\n",
+					"and sql_gold.dim_player.gameid=sql_gold.dim_player_loader.gameid )\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (player_ID,gameid, name, race, class,Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_player_loader.player_ID + coalesce((select max(player_ID) from sql_gold.dim_player),0) ,\r\n",
+					"sql_gold.dim_player_loader.gameid,\r\n",
+					"sql_gold.dim_player_loader.name,\r\n",
+					"sql_gold.dim_player_loader.race,\r\n",
+					"sql_gold.dim_player_loader.class,\r\n",
+					"sql_gold.dim_player_loader.Current_Date,\r\n",
+					"sql_gold.dim_player_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_player_loader ;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_dnd_player USING DELTA as\r\n",
+					" select row_number() over (order by name, race, class, location) as dnd_player_ID, 0 as name_id, 0 as race_id, 0 as class_id, 0 as location_id, \r\n",
+					" current_date() as Current_Date, now() as LoadDate from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_dnd_player_loader USING DELTA as  \r\n",
+					"select row_number() over (order by  name_id, race_id, class_id, location_id) \r\n",
+					"as dnd_player_ID,  name_id, race_id, class_id, location_id, current_date() as Current_Date, now() as LoadDate from \r\n",
+					"( select distinct   dn.name_id, dr.Race_ID, dc.class_id,dl.location_id\r\n",
+					"from sql_silver.rolls r\r\n",
+					"inner join sql_gold.dim_name dn on r.name = dn.name\r\n",
+					"inner join sql_gold.dim_class dc on r.class = dc.class\r\n",
+					"inner join sql_gold.dim_location dl on r.location = dl.location\r\n",
+					"inner join sql_gold.dim_race dr on r.race = dr.race ) tmp ORDER BY  name_id, race_id, class_id, location_id\r\n",
+					";\r\n",
+					"\r\n",
+					"MERGE INTO sql_gold.dim_dnd_player using \r\n",
+					"           sql_gold.dim_dnd_player_loader ON \r\n",
+					"   (sql_gold.dim_dnd_player.name_id        =sql_gold.dim_dnd_player_loader.name_id\r\n",
+					"and sql_gold.dim_dnd_player.race_id     =   sql_gold.dim_dnd_player_loader.race_id\r\n",
+					"and sql_gold.dim_dnd_player.class_id    =   sql_gold.dim_dnd_player_loader.class_id\r\n",
+					"and sql_gold.dim_dnd_player.location_id =   sql_gold.dim_dnd_player_loader.location_id )\r\n",
+					"WHEN NOT MATCHED \r\n",
+					"THEN INSERT (dnd_player_ID, name_id, race_id, class_id, location_id, Current_Date,LoadDate ) VALUES \r\n",
+					"(sql_gold.dim_dnd_player_loader.dnd_player_ID + coalesce((select max(dnd_player_ID) from sql_gold.dim_dnd_player),0) ,\r\n",
+					"sql_gold.dim_dnd_player_loader.name_id,\r\n",
+					"sql_gold.dim_dnd_player_loader.race_id,\r\n",
+					"sql_gold.dim_dnd_player_loader.class_id,\r\n",
+					"sql_gold.dim_dnd_player_loader.location_id,\r\n",
+					"sql_gold.dim_dnd_player_loader.Current_Date,\r\n",
+					"sql_gold.dim_dnd_player_loader.LoadDate);\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_dnd_player_loader ;\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"--drop table sql_gold.fact_rolls;\r\n",
+					"\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.fact_rolls USING DELTA as\r\n",
+					"SELECT \r\n",
+					"dc.class_id\r\n",
+					",dl.Location_ID \r\n",
+					",dd.dice_id \r\n",
+					",dn.name_id\r\n",
+					",dfn.first_name_ID \r\n",
+					",dffn.family_name_ID \r\n",
+					",dr.Race_ID \r\n",
+					",dp.player_ID \r\n",
+					",ddc.DateInt\r\n",
+					",r.RollHour\r\n",
+					",r.roll\r\n",
+					"FROM sql_silver.rolls r \r\n",
+					"inner join sql_gold.dim_class dc on r.class = dc.class\r\n",
+					"inner join sql_gold.dim_location dl on r.location = dl.location\r\n",
+					"inner join sql_gold.dim_dice dd on r.dice = dd.dice\r\n",
+					"inner join sql_gold.dim_name dn on r.name = dn.name\r\n",
+					"inner join sql_gold.dim_first_name dfn on r.first_name = dfn.first_name\r\n",
+					"inner join sql_gold.dim_family_name dffn on r.family_name = dffn.family_name\r\n",
+					"inner join sql_gold.dim_race dr on r.race = dr.race\r\n",
+					"inner join sql_gold.dim_calendar ddc on ddc.CalendarDate = r.RollDate\r\n",
+					"inner join sql_gold.dim_player dp on r.race = dp.race and r.name = dp.name and r.class = dp.class and r.gameid = dp.gameid\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"DROP table if exists sql_gold.fact_rolls_small;\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.fact_rolls_small USING DELTA as\r\n",
+					"SELECT\r\n",
+					"r.SystemID,\r\n",
+					"r.Gameid\r\n",
+					",dd.dice_id \r\n",
+					",ddc.DateInt\r\n",
+					",r.RollHour\r\n",
+					",r.roll\r\n",
+					",dp.dnd_player_ID\r\n",
+					"FROM sql_silver.rolls r \r\n",
+					"inner join sql_gold.dim_class dc on r.class = dc.class\r\n",
+					"inner join sql_gold.dim_location dl on r.location = dl.location\r\n",
+					"inner join sql_gold.dim_dice dd on r.dice = dd.dice\r\n",
+					"inner join sql_gold.dim_name dn on r.name = dn.name\r\n",
+					"inner join sql_gold.dim_first_name dfn on r.first_name = dfn.first_name\r\n",
+					"inner join sql_gold.dim_family_name dffn on r.family_name = dffn.family_name\r\n",
+					"inner join sql_gold.dim_race dr on r.race = dr.race\r\n",
+					"inner join sql_gold.dim_calendar ddc on ddc.CalendarDate = r.RollDate\r\n",
+					"inner join sql_gold.dim_dnd_player dp on dr.race_id = dp.race_id \r\n",
+					"    and dn.name_id = dp.name_id and dc.class_id = dp.class_id and dl.location_id = dp.location_id\r\n",
+					";\r\n",
+					"\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE DATABASE IF NOT EXISTS sql_gold;\r\n",
+					"--drop table sql_gold.dim_player ;\r\n",
+					"CREATE TABLE IF NOT EXISTS sql_gold.dim_player_type2 USING DELTA as\r\n",
+					" select row_number() over (order by  name, race, class) as player_ID, \r\n",
+					" name, \r\n",
+					" race, \r\n",
+					" class,  \r\n",
+					" current_date() as Current_Date, \r\n",
+					" now() as LoadDate,  \r\n",
+					" RollDT as FromDate,  \r\n",
+					" now() as ToDate, \r\n",
+					" 0 as IsCurrent  from sql_silver.rolls limit 0;\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_player_type2_loader USING DELTA as  select row_number() over (order by name, race, class) \r\n",
+					"as player_ID,  name, race, class,  current_date() as Current_Date, now() as LoadDate, RollDT \r\n",
+					"from ( select distinct   name, race, class, RollDT from sql_silver.rolls  ) tmp ORDER BY name, race, class\r\n",
+					";\r\n",
+					"\r\n",
+					" INSERT INTO sql_gold.dim_player_type2 \r\n",
+					" SELECT \r\n",
+					"(sql_gold.dim_player_loader.player_ID + coalesce((select max(player_ID) from sql_gold.dim_player),0) ,\r\n",
+					"sql_gold.dim_player_loader.name,\r\n",
+					"sql_gold.dim_player_loader.race,\r\n",
+					"sql_gold.dim_player_loader.class,\r\n",
+					"sql_gold.dim_player_loader.Current_Date,\r\n",
+					"sql_gold.dim_player_loader.LoadDate,);\r\n",
+					"sql_gold.dim_player_loader.RollDT,\r\n",
+					"\r\n",
+					"drop table  sql_gold.dim_player_loader ;\r\n",
+					"\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"CREATE OR REPLACE table sql_gold.dim_player_type2 USING DELTA as  \r\n",
+					"select player_id, name, race, class, Current_Date, LoadDate, FromDate , ToDate , IsCurrent from (\r\n",
+					"select  row_number() over (order by name, race, class) as player_id\r\n",
+					", name\r\n",
+					",race\r\n",
+					",class\r\n",
+					", current_date() as Current_Date \r\n",
+					", now() as LoadDate,\r\n",
+					"RollDT as FromDate ,\r\n",
+					"lag(RollDT) over (partition by name,race,class,RollDT order by RollDT ) ToDate,\r\n",
+					"case when lag(RollDT) over (partition by name,race,class,RollDT order by RollDT ) is null  then 1 else 0 end as IsCurrent\r\n",
+					"from (\r\n",
+					"SELECT \r\n",
+					"      Name\r\n",
+					"      ,Race\r\n",
+					"\t  ,Class\r\n",
+					"      ,rolldt\r\n",
+					"  FROM sql_silver.rolls \r\n",
+					"        group by       Name\r\n",
+					"      ,Race\r\n",
+					"\t  ,Class\r\n",
+					"      ,rolldt\r\n",
+					"  union all\r\n",
+					"SELECT \r\n",
+					"      Name\r\n",
+					"      ,Race\r\n",
+					"\t  ,Class\r\n",
+					"      ,FromDate\r\n",
+					"  FROM sql_gold.dim_player_type2_v2\r\n",
+					"      group by       Name\r\n",
+					"      ,Race\r\n",
+					"\t  ,Class\r\n",
+					"      ,FromDate\r\n",
+					") t ) q"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

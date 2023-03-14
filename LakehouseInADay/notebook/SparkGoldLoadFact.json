@@ -1,0 +1,244 @@
+{
+	"name": "SparkGoldLoadFact",
+	"properties": {
+		"folder": {
+			"name": "Spark Solution/Gold"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkySpark3",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "51aafdfe-c866-4253-9eae-eca7cec687a6"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/d0fae35b-ff21-4adb-976c-e204ebb68d26/resourceGroups/sqlbits/providers/Microsoft.Synapse/workspaces/dungeonmaster-sqlbits/bigDataPools/SparkySpark3",
+				"name": "SparkySpark3",
+				"type": "Spark",
+				"endpoint": "https://dungeonmaster-sqlbits.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkySpark3",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h1>SilverZone to Gold Fact with Init\r\n",
+					"<img src=\"https://sqlbits.com/images/sqlbits/2023.png\" alt=\"W3Schools.com\" style=\"float:right\"width=\"200\" height=\"100\">\r\n",
+					"</h1>"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2>Define Parameter Cell"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Parameter Cell\r\n",
+					"IsInitial = 1\r\n",
+					"SilverTableLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparksilver.db/rolls'\r\n",
+					"DatabaseName = 'SparkGold'\r\n",
+					"GoldTableRootLocation = 'abfss://dungeonmaster@dungeonmaster.dfs.core.windows.net/synapse/workspaces/dungeonmaster-sqlbits/warehouse/sparkgold.db/'\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2>(Re)create Gold fact table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.FactRolls;')\r\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load all SilverZone data and dimensions (gold)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"import delta\r\n",
+					"\r\n",
+					"#which one is better? py delta or spark.sql?\r\n",
+					"dfSilver = delta.DeltaTable.forPath(spark, f'{SilverTableLocation}').toDF().alias(\"silver\");#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					"dfDimClass = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimclass').toDF().alias(\"dimclass\");#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					"dfDimDice = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimdice').toDF().alias(\"dimdice\");#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					"dfDimCharacter = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimcharacter').alias(\"dimcharacter\").toDF();#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					"dfDimGame = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimgame').alias(\"dimgame\").toDF();#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					"dfDimUser = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimuser').alias(\"dimuser\").toDF();#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					""
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<h2> Load Fact Rolls"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.functions import monotonically_increasing_id\r\n",
+					"from pyspark.sql.functions import concat,col,lit\r\n",
+					"\r\n",
+					"#Initial Load\r\n",
+					"if IsInitial == 1: \r\n",
+					"    spark.sql(f'DROP TABLE IF EXISTS {DatabaseName}.FactRolls;')\r\n",
+					"#    dfCleansed.write.format('delta').saveAsTable(f'{DatabaseName}.{TableName}')\r\n",
+					"\r\n",
+					"dfRollsInput = (\r\n",
+					"    dfSilver\r\n",
+					"    .drop(dfSilver[\"RowHash\"])\r\n",
+					"    .join(dfDimDice, (concat(lit(\"Dice with \"), dfSilver[\"Dice\"]) == dfDimDice[\"DiceName\"]))\r\n",
+					"    .drop(\"Dice\", \"DiceName\")\r\n",
+					"    .join(dfDimCharacter,(dfSilver[\"Class\"] == dfDimCharacter[\"Class\"]) & (dfSilver[\"Race\"] == dfDimCharacter[\"Race\"]))\r\n",
+					"    .drop(\"Class\", \"Race\")\r\n",
+					"    .join(dfDimGame,(dfSilver[\"GameID\"] == dfDimGame[\"Game\"]) & (dfSilver[\"SystemID\"] == dfDimGame[\"SystemID\"]))\r\n",
+					"    .drop(dfSilver[\"GameID\"])\r\n",
+					"    .drop(\"SystemID\", \"Game\")\r\n",
+					"    .join(dfDimUser, (dfSilver[\"Name\"] == dfDimUser[\"Name\"]))\r\n",
+					"    .drop(\"Name\")\r\n",
+					"    .select(\"Roll\", \"DateID\", \"UserID\", \"DiceID\", \"CharacterID\", \"GameID\")\r\n",
+					"#dfDimUser = delta.DeltaTable.forPath(spark, f'{GoldTableRootLocation}dimuser').toDF();#spark.sql(\"SELECT * FROM sparksilver.rolls\")\r\n",
+					"\r\n",
+					"#    .join(dfGoldDimGame, (dfRollsInput[\"GameID\"] == dfGoldDimGame[\"Game\"]) & (dfRollsInput[\"SystemID\"] == dfGoldDimGame[\"SystemID\"]), how='left_anti')\r\n",
+					"#    .join(dfGoldDimUser, on='Name', how='left_anti')\r\n",
+					"    .tail(10)\r\n",
+					")\r\n",
+					"\r\n",
+					"display(dfRollsInput)\r\n",
+					"#if IsInitial == 0: \r\n",
+					"#    SilverRolls = delta.DeltaTable.forPath(spark, f'{SilverTableLocation}')\r\n",
+					"#    SilverRolls.alias('delta').merge(dfCleansed.alias('df'),'delta.RollDateTime = df.RollDateTime and delta.GameID = df.GameID and delta.SystemID = df.SystemID').whenNotMatchedInsertAll().whenMatchedUpdateAll().execute(condition='delta.RowHash <> df.RowHash')\r\n",
+					""
+				],
+				"execution_count": 10
+			}
+		]
+	}
+}
